@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <title>香港交通实时监控系统</title>
+    <style>
+        /* 完整样式系统 */
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        .cctv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 10px;
+        }
+        
+        .bus-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .bus-card {
+            background: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- 侧边栏 - 控制面板 -->
+        <div class="sidebar">
+            <h2>控制面板</h2>
+            <div class="filters">
+                <h3>筛选条件</h3>
+                <select id="routeFilter">
+                    <option value="">所有路线</option>
+                    <!-- 动态加载路线 -->
+                </select>
+                <select id="modelFilter">
+                    <option value="">所有车型</option>
+                    <option value="E500MMC">E500 MMC</option>
+                    <option value="E400">E400</option>
+                    <option value="Volvo B8L">Volvo B8L</option>
+                </select>
+            </div>
+            <div class="stats">
+                <h3>实时统计</h3>
+                <div id="liveStats"></div>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- CCTV监控区 -->
+            <div class="cctv-section">
+                <h3>道路实时监控</h3>
+                <div class="cctv-grid" id="cctvContainer">
+                    <!-- CCTV画面动态加载 -->
+                </div>
+            </div>
+            
+            <!-- 巴士信息区 -->
+            <div class="bus-section">
+                <h3>巴士实时信息</h3>
+                <div class="bus-list" id="busContainer">
+                    <!-- 巴士信息动态加载 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置信息
+        const CONFIG = {
+            refreshInterval: 120000, // 2分钟
+            maxBuses: 50,
+            cctvUpdateUrl: 'https://api.hkemobility.gov.hk/traffic/cctv'
+        };
+
+        // 数据管理
+        class TrafficSystem {
+            constructor() {
+                this.buses = [];
+                this.cctvCameras = [];
+                this.filters = {};
+            }
+            
+            async initialize() {
+                await this.loadCCTVData();
+                await this.loadBusData();
+                this.startAutoRefresh();
+            }
+            
+            async loadCCTVData() {
+                try {
+                    // 这里需要实际的API端点
+                    const response = await fetch(CONFIG.cctvUpdateUrl);
+                    this.cctvCameras = await response.json();
+                    this.renderCCTV();
+                } catch (error) {
+                    console.error('加载CCTV数据失败:', error);
+                    this.loadFallbackCCTV();
+                }
+            }
+            
+            async loadBusData() {
+                try {
+                    // 模拟巴士数据 - 实际使用时需要真实API
+                    this.buses = this.generateBusData();
+                    this.renderBuses();
+                } catch (error) {
+                    console.error('加载巴士数据失败:', error);
+                }
+            }
+            
+            generateBusData() {
+                const models = ['E500MMC', 'E400', 'Volvo B8L V6B'];
+                const routes = ['101', '102', '968', '603', '104', '112'];
+                const companies = ['九巴', '城巴', '新巴'];
+                
+                return Array.from({length: 20}, (_, i) => ({
+                    id: `BUS${1000 + i}`,
+                    route: routes[Math.floor(Math.random() * routes.length)],
+                    model: models[Math.floor(Math.random() * models.length)],
+                    licensePlate: this.generateLicensePlate(),
+                    company: companies[Math.floor(Math.random() * companies.length)],
+                    location: this.generateLocation(),
+                    timestamp: new Date()
+                }));
+            }
+            
+            generateLicensePlate() {
+                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                const numbers = '0123456789';
+                let plate = '';
+                
+                // 生成类似香港车牌格式
+                plate += letters.charAt(Math.floor(Math.random() * letters.length));
+                plate += numbers.charAt(Math.floor(Math.random() * numbers.length));
+                plate += numbers.charAt(Math.floor(Math.random() * numbers.length));
+                plate += letters.charAt(Math.floor(Math.random() * letters.length));
+                plate += numbers.charAt(Math.floor(Math.random() * numbers.length));
+                plate += numbers.charAt(Math.floor(Math.random() * numbers.length));
+                
+                return plate;
+            }
+            
+            generateLocation() {
+                // 模拟香港坐标
+                const lat = 22.25 + (Math.random() * 0.3);
+                const lng = 114.1 + (Math.random() * 0.3);
+                return { lat, lng };
+            }
+            
+            renderCCTV() {
+                const container = document.getElementById('cctvContainer');
+                container.innerHTML = '';
+                
+                this.cctvCameras.forEach(camera => {
+                    const cameraElement = document.createElement('div');
+                    cameraElement.className = 'camera-item';
+                    cameraElement.innerHTML = `
+                        <div class="camera-header">
+                            <h4>${camera.name}</h4>
+                            <span class="status">实时</span>
+                        </div>
+                        <img src="${camera.imageUrl}" 
+                             alt="${camera.name}"
+                             onerror="this.src='fallback-image.jpg'">
+                        <div class="camera-info">
+                            <p>位置: ${camera.location}</p>
+                            <p>更新时间: ${new Date().toLocaleTimeString()}</p>
+                        </div>
+                    `;
+                    container.appendChild(cameraElement);
+                });
+            }
+            
+            renderBuses() {
+                const container = document.getElementById('busContainer');
+                container.innerHTML = '';
+                
+                const filteredBuses = this.applyFilters(this.buses);
+                
+                filteredBuses.forEach(bus => {
+                    const busElement = document.createElement('div');
+                    busElement.className = 'bus-card';
+                    busElement.innerHTML = `
+                        <div class="bus-header">
+                            <h4>${bus.company} ${bus.route} 路线</h4>
+                            <span class="bus-model">${bus.model}</span>
+                        </div>
+                        <div class="bus-details">
+                            <p>车牌: ${bus.licensePlate}</p>
+                            <p>车辆ID: ${bus.id}</p>
+                            <p>位置: ${bus.location.lat.toFixed(4)}, ${bus.location.lng.toFixed(4)}</p>
+                            <p>最后更新: ${bus.timestamp.toLocaleTimeString()}</p>
+                        </div>
+                    `;
+                    container.appendChild(busElement);
+                });
+                
+                // 更新统计信息
+                this.updateStats(filteredBuses.length);
+            }
+            
+            applyFilters(buses) {
+                return buses.filter(bus => {
+                    if (this.filters.route && bus.route !== this.filters.route) return false;
+                    if (this.filters.model && bus.model !== this.filters.model) return false;
+                    return true;
+                });
+            }
+            
+            updateStats(count) {
+                const statsElement = document.getElementById('liveStats');
+                statsElement.innerHTML = `
+                    <p>在线巴士: ${count} 辆</p>
+                    <p>最后更新: ${new Date().toLocaleTimeString()}</p>
+                    <p>监控摄像头: ${this.cctvCameras.length} 个</p>
+                `;
+            }
+            
+            startAutoRefresh() {
+                setInterval(() => {
+                    this.loadBusData();
+                    this.loadCCTVData();
+                }, CONFIG.refreshInterval);
+            }
+            
+            loadFallbackCCTV() {
+                // 备用CCTV数据
+                this.cctvCameras = [
+                    { 
+                        id: 1, 
+                        name: "红磡海底隧道", 
+                        location: "红磡",
+                        imageUrl: "https://example.com/cctv/1.jpg" 
+                    },
+                    // 更多备用摄像头...
+                ];
+                this.renderCCTV();
+            }
+        }
+
+        // 初始化系统
+        document.addEventListener('DOMContentLoaded', () => {
+            const trafficSystem = new TrafficSystem();
+            trafficSystem.initialize();
+            
+            // 设置筛选器事件监听
+            document.getElementById('routeFilter').addEventListener('change', (e) => {
+                trafficSystem.filters.route = e.target.value;
+                trafficSystem.renderBuses();
+            });
+            
+            document.getElementById('modelFilter').addEventListener('change', (e) => {
+                trafficSystem.filters.model = e.target.value;
+                trafficSystem.renderBuses();
+            });
+        });
+    </script>
+</body>
+  </html>
